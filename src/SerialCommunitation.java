@@ -1,11 +1,15 @@
 import javax.swing.*;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
-
-import com.fazecast.jSerialComm.SerialPort;
-
 import javax.swing.JOptionPane;
 import static javax.swing.JOptionPane.ERROR_MESSAGE;
+
+import com.fazecast.jSerialComm.SerialPort;
+import com.fazecast.jSerialComm.SerialPortDataListener;
+import com.fazecast.jSerialComm.SerialPortEvent;
+
+import java.io.OutputStream;
+import java.io.IOException;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -13,6 +17,8 @@ import java.awt.event.ActionListener;
 public class SerialCommunitation extends JFrame{
 
     SerialPort serialPort1;
+    OutputStream outputStream1;
+    String dataBuffer = "";
 
     private JPanel mainPanel;
     private JComboBox comPort;
@@ -27,6 +33,8 @@ public class SerialCommunitation extends JFrame{
     private JTextArea dataToSend;
     private JButton send;
     private JComboBox endLine;
+    private JTextField incomingData;
+    private JButton ping;
 
     public SerialCommunitation(){
         initComponents();
@@ -71,22 +79,101 @@ public class SerialCommunitation extends JFrame{
                     serialPort1.setNumDataBits(Integer.parseInt(dataBits.getSelectedItem().toString()));
                     serialPort1.setNumStopBits(Integer.parseInt(stopBits.getSelectedItem().toString()));
                     serialPort1.openPort();
+                    outputStream1 = serialPort1.getOutputStream();
+                    ping.setEnabled(true);
 
                     if(serialPort1.isOpen()){
                         JOptionPane.showMessageDialog(mainPanel, serialPort1.getDescriptivePortName() + " -- Success to OPEN!");
-                        comPort.setEnabled(true);
-                        comStatus.setValue(0);
-                        open.setEnabled(true);
-                        close.setEnabled(false);
-                        send.setEnabled(false);
+                        comPort.setEnabled(false);
+                        comStatus.setValue(100);
+                        open.setEnabled(false);
+                        close.setEnabled(true);
+                        send.setEnabled(true);
+
+                        Serial_EventBasedReading(serialPort1);
+
                     }else{
                         JOptionPane.showMessageDialog(mainPanel, serialPort1.getDescriptivePortName() + " -- Failed to OPEN!");
                     }
 
                 }catch (ArrayIndexOutOfBoundsException a){
-
+                        JOptionPane.showMessageDialog(mainPanel, "Please choose COM PORT", "ERROR", ERROR_MESSAGE);
                 }catch (Exception b){
+                        JOptionPane.showMessageDialog(mainPanel, b, "ERROR", ERROR_MESSAGE);
+                }
+            }
+        });
+        close.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if(serialPort1.isOpen()){
+                    serialPort1.closePort();
+                    comPort.setEnabled(true);
+                    comStatus.setValue(0);
+                    open.setEnabled(true);
+                    close.setEnabled(false);
+                    send.setEnabled(false);
+                }
+            }
+        });
+        send.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                outputStream1 = serialPort1.getOutputStream();
+                String textAreaDataToSend = "";
 
+
+                switch (endLine.getSelectedIndex()){
+                    case 0:
+                        textAreaDataToSend = dataToSend.getText(); //none
+                        break;
+                    case 1:
+                        textAreaDataToSend = dataToSend.getText() + "\n"; //new line
+                        break;
+                    case 2:
+                        textAreaDataToSend = dataToSend.getText() + "\r"; //carriage return
+                        break;
+                    case 3:
+                        textAreaDataToSend = dataToSend.getText() + "\r\n"; // both
+                        break;
+                }
+
+               try{
+                    outputStream1.write(textAreaDataToSend.getBytes());
+               }catch (IOException ioex){
+                   JOptionPane.showMessageDialog(mainPanel, ioex.getMessage());
+               }
+
+
+            }
+        });
+        ping.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try{
+                    outputStream1.write(0x5);
+                    outputStream1.write("PING".getBytes());
+                }catch (IOException ex){
+                    JOptionPane.showMessageDialog(mainPanel, ex.getMessage());
+                }
+                JOptionPane.showMessageDialog(mainPanel, "Ping was sent");
+            }
+        });
+    }
+
+    public void Serial_EventBasedReading(SerialPort activePort){
+        activePort.addDataListener(new SerialPortDataListener() {
+            @Override
+            public int getListeningEvents() {
+                return SerialPort.LISTENING_EVENT_DATA_RECEIVED;
+            }
+
+            @Override
+            public void serialEvent(SerialPortEvent serialPortEvent) {
+                byte[] newData = serialPortEvent.getReceivedData();
+                for (int i = 0; i < newData.length; i++){
+                    dataBuffer += (char)newData[i];
+                    incomingData.setText(dataBuffer);
                 }
             }
         });
