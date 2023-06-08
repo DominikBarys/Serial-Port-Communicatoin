@@ -14,8 +14,13 @@ import java.io.IOException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-public class SerialCommunitation extends JFrame{
+public class SerialCommunitation extends JFrame implements Runnable{
 
+    Thread thread;
+    long waitingForPing = 0L;
+    boolean failedToPing = false;
+    private final SerialCommunitation self;
+    long start;
     SerialPort serialPort1;
     OutputStream outputStream1;
     String dataBuffer = "";
@@ -37,6 +42,7 @@ public class SerialCommunitation extends JFrame{
     private JButton ping;
 
     public SerialCommunitation(){
+        self = this;
         initComponents();
         baudRate.setSelectedItem("9600");
         dataBits.setSelectedItem("8");
@@ -150,13 +156,35 @@ public class SerialCommunitation extends JFrame{
         ping.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                try{
-                    outputStream1.write(0x5);
-                    outputStream1.write("PING".getBytes());
-                }catch (IOException ex){
-                    JOptionPane.showMessageDialog(mainPanel, ex.getMessage());
+
+                start = System.currentTimeMillis();
+
+                dataBuffer = "";
+
+                thread = new Thread(self);
+
+                thread.start();
+
+                System.out.println(dataBuffer);
+                System.out.println("SIEMA 1");
+
+                try {
+                    thread.join();
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
                 }
-                JOptionPane.showMessageDialog(mainPanel, "Ping was sent");
+
+                System.out.println("SIEMA 2");
+
+                if(failedToPing){
+                    long end = System.currentTimeMillis();
+                    JOptionPane.showMessageDialog(mainPanel, "Ping failed\nTime elapsed: "
+                            + (end - start) + " miliseconds");
+                }else{
+                    long end = System.currentTimeMillis();
+                    JOptionPane.showMessageDialog(mainPanel, "Ping was sent\nTime elapsed: "
+                            + (end - start) + " miliseconds" );
+                }
             }
         });
     }
@@ -190,5 +218,30 @@ public class SerialCommunitation extends JFrame{
 
     public static void main(String[] args) {
         new SerialCommunitation();
+    }
+
+    @Override
+    public void run() {
+        try{
+            outputStream1.write(0x5);
+            outputStream1.write("PING".getBytes());
+            Thread.sleep(5);
+            System.out.println("Data buffer 1: " + dataBuffer);
+            while(!dataBuffer.equals("PONG")){
+                waitingForPing = System.currentTimeMillis();
+                if((waitingForPing - start) >= 3000){
+                    failedToPing = true;
+                    break;
+                }
+            }
+        }catch (IOException ex){
+            System.out.println("IOException ex");
+            JOptionPane.showMessageDialog(mainPanel, ex.getMessage());
+        } catch (InterruptedException ex) {
+            System.out.println("InterruptedException ex");
+            throw new RuntimeException(ex);
+        }finally {
+            System.out.println("Data buffer 2: " + dataBuffer);
+        }
     }
 }
