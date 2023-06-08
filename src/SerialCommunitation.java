@@ -40,6 +40,9 @@ public class SerialCommunitation extends JFrame implements Runnable{
     private JComboBox endLine;
     private JTextField incomingData;
     private JButton ping;
+    private JButton clear;
+    private JTextField customTerminator;
+    private JTextField pingTimeout;
 
     public SerialCommunitation(){
         self = this;
@@ -142,15 +145,17 @@ public class SerialCommunitation extends JFrame implements Runnable{
                     case 3:
                         textAreaDataToSend = dataToSend.getText() + "\r\n"; // both
                         break;
+                    case 4:
+                        textAreaDataToSend = dataToSend.getText() + checkCustomTerminator(customTerminator); //custom
                 }
 
                try{
                     outputStream1.write(textAreaDataToSend.getBytes());
                }catch (IOException ioex){
                    JOptionPane.showMessageDialog(mainPanel, ioex.getMessage());
+               }finally {
+                   dataToSend.setText("");
                }
-
-
             }
         });
         ping.addActionListener(new ActionListener() {
@@ -187,6 +192,13 @@ public class SerialCommunitation extends JFrame implements Runnable{
                 }
             }
         });
+        clear.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                incomingData.setText("");
+                dataBuffer = "";
+            }
+        });
     }
 
     public void Serial_EventBasedReading(SerialPort activePort){
@@ -220,16 +232,43 @@ public class SerialCommunitation extends JFrame implements Runnable{
         new SerialCommunitation();
     }
 
+    String checkCustomTerminator(JTextField textField){
+        String terminator = textField.getText();
+        if(terminator.length() <= 2){
+            return terminator;
+        }else{
+            System.out.println("Terminator length:" + terminator.length());
+            JOptionPane.showMessageDialog(mainPanel, "Custom terminator should be 1 or 2 sign");
+            return "";
+        }
+    }
+
     @Override
     public void run() {
+
+        long timeToWaitForPing;
+
+        System.out.println("1");
+
         try{
+            timeToWaitForPing = Long.parseLong(pingTimeout.getText());
+            System.out.println("2");
+        } catch (NumberFormatException ex){
+            System.out.println("3");
+            timeToWaitForPing = 3000;
+        }
+
+        try{
+            System.out.println("5");
             outputStream1.write(0x5);
             outputStream1.write("PING".getBytes());
             Thread.sleep(5);
             System.out.println("Data buffer 1: " + dataBuffer);
+            System.out.println("6");
             while(!dataBuffer.equals("PONG")){
+                System.out.println("7");
                 waitingForPing = System.currentTimeMillis();
-                if((waitingForPing - start) >= 3000){
+                if((waitingForPing - start) > timeToWaitForPing){
                     failedToPing = true;
                     break;
                 }
@@ -237,7 +276,7 @@ public class SerialCommunitation extends JFrame implements Runnable{
         }catch (IOException ex){
             System.out.println("IOException ex");
             JOptionPane.showMessageDialog(mainPanel, ex.getMessage());
-        } catch (InterruptedException ex) {
+        }catch (InterruptedException ex) {
             System.out.println("InterruptedException ex");
             throw new RuntimeException(ex);
         }finally {
