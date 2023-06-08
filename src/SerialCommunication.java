@@ -14,12 +14,12 @@ import java.io.IOException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
-public class SerialCommunitation extends JFrame implements Runnable{
+public class SerialCommunication extends JFrame implements Runnable{
 
     Thread thread;
     long waitingForPing = 0L;
     boolean failedToPing = false;
-    private final SerialCommunitation self;
+    private final SerialCommunication self;
     long start;
     SerialPort serialPort1;
     OutputStream outputStream1;
@@ -30,7 +30,7 @@ public class SerialCommunitation extends JFrame implements Runnable{
     private JComboBox baudRate;
     private JComboBox stopBits;
     private JComboBox dataBits;
-    private JComboBox patiryBits;
+    private JComboBox parityBits;
     private JProgressBar comStatus;
     private JPanel comSettings;
     private JButton open;
@@ -43,14 +43,16 @@ public class SerialCommunitation extends JFrame implements Runnable{
     private JButton clear;
     private JTextField customTerminator;
     private JTextField pingTimeout;
+    private JButton save;
+    private JComboBox flowControl;
 
-    public SerialCommunitation(){
+    public SerialCommunication(){
         self = this;
         initComponents();
         baudRate.setSelectedItem("9600");
         dataBits.setSelectedItem("8");
         stopBits.setSelectedItem("1");
-        patiryBits.setSelectedItem("NO_PARITY");
+        parityBits.setSelectedItem("NO_PARITY");
         endLine.setSelectedItem("None");
 
         comPort.setEnabled(true);
@@ -87,6 +89,33 @@ public class SerialCommunitation extends JFrame implements Runnable{
                     serialPort1.setBaudRate(Integer.parseInt(baudRate.getSelectedItem().toString()));
                     serialPort1.setNumDataBits(Integer.parseInt(dataBits.getSelectedItem().toString()));
                     serialPort1.setNumStopBits(Integer.parseInt(stopBits.getSelectedItem().toString()));
+
+                    String paritySelection = parityBits.getSelectedItem().toString();
+
+                    switch (paritySelection) {
+                        case "NO_PARITY":
+                            serialPort1.setParity(SerialPort.NO_PARITY);
+                            break;
+                        case "EVEN_PARITY":
+                            serialPort1.setParity(SerialPort.EVEN_PARITY);
+                            break;
+                        case "ODD_PARITY":
+                            serialPort1.setParity(SerialPort.ODD_PARITY);
+                            break;
+                    }
+
+                    switch (flowControl.getSelectedIndex()){
+                        case 0:
+                            serialPort1.setFlowControl(SerialPort.FLOW_CONTROL_DISABLED);
+                            break;
+                        case 1:
+                            serialPort1.setFlowControl(SerialPort.FLOW_CONTROL_RTS_ENABLED | SerialPort.FLOW_CONTROL_CTS_ENABLED);
+                            break;
+                        case 2:
+                            serialPort1.setFlowControl(SerialPort.FLOW_CONTROL_XONXOFF_IN_ENABLED | SerialPort.FLOW_CONTROL_XONXOFF_OUT_ENABLED);
+                            break;
+                    }
+
                     serialPort1.openPort();
                     outputStream1 = serialPort1.getOutputStream();
                     ping.setEnabled(true);
@@ -199,6 +228,45 @@ public class SerialCommunitation extends JFrame implements Runnable{
                 dataBuffer = "";
             }
         });
+        save.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                serialPort1.setBaudRate(Integer.parseInt(baudRate.getSelectedItem().toString()));
+                serialPort1.setNumDataBits(Integer.parseInt(dataBits.getSelectedItem().toString()));
+                serialPort1.setNumStopBits(Integer.parseInt(stopBits.getSelectedItem().toString()));
+
+                String paritySelection = parityBits.getSelectedItem().toString();
+
+                switch (paritySelection) {
+                    case "NO_PARITY":
+                        serialPort1.setParity(SerialPort.NO_PARITY);
+                        break;
+                    case "EVEN_PARITY":
+                        serialPort1.setParity(SerialPort.EVEN_PARITY);
+                        break;
+                    case "ODD_PARITY":
+                        serialPort1.setParity(SerialPort.ODD_PARITY);
+                        break;
+                }
+
+               // serialPort1.setParity(Integer.parseInt(parityBits.getSelectedItem().toString()));
+
+                switch (flowControl.getSelectedIndex()){
+                    case 0:
+                        serialPort1.setFlowControl(SerialPort.FLOW_CONTROL_DISABLED);
+                        break;
+                    case 1:
+                        serialPort1.setFlowControl(SerialPort.FLOW_CONTROL_RTS_ENABLED | SerialPort.FLOW_CONTROL_CTS_ENABLED);
+                        break;
+                    case 2:
+                        serialPort1.setFlowControl(SerialPort.FLOW_CONTROL_XONXOFF_IN_ENABLED | SerialPort.FLOW_CONTROL_XONXOFF_OUT_ENABLED);
+                        break;
+                }
+
+                JOptionPane.showMessageDialog(mainPanel, "Settings changed");
+            }
+        });
     }
 
     public void Serial_EventBasedReading(SerialPort activePort){
@@ -227,9 +295,8 @@ public class SerialCommunitation extends JFrame implements Runnable{
         setVisible(true);
     }
 
-
     public static void main(String[] args) {
-        new SerialCommunitation();
+        new SerialCommunication();
     }
 
     String checkCustomTerminator(JTextField textField){
@@ -275,7 +342,6 @@ public class SerialCommunitation extends JFrame implements Runnable{
             }
         }catch (IOException ex){
             System.out.println("IOException ex");
-            JOptionPane.showMessageDialog(mainPanel, ex.getMessage());
         }catch (InterruptedException ex) {
             System.out.println("InterruptedException ex");
             throw new RuntimeException(ex);
